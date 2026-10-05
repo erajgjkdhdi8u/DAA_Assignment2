@@ -84,7 +84,7 @@ def save_operations_plot(rows, title, filename):
                 )
 
     plt.xscale("log")
-    plt.yscale("symlog", linthresh=1)
+    plt.yscale("log")
     plt.xlabel("n")
     plt.ylabel("Operation count")
     plt.title(title)
