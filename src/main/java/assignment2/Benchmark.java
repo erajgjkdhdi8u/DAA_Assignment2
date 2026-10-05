@@ -4,18 +4,13 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Locale;
 import java.util.Random;
 
 public class Benchmark {
     private static final int[] SIZES = {100, 1_000, 10_000, 100_000};
     private static final int RUNS = 5;
-
-    private interface Action {
-        RunResult run();
-    }
+    private static long checkValue;
 
     private static class RunResult {
         double timeMs;
@@ -25,9 +20,9 @@ public class Benchmark {
 
         RunResult(double timeMs, Metrics metrics) {
             this.timeMs = timeMs;
-            this.steps = metrics.getSteps();
-            this.moves = metrics.getMoves();
-            this.comparisons = metrics.getComparisons();
+            steps = metrics.getSteps();
+            moves = metrics.getMoves();
+            comparisons = metrics.getComparisons();
         }
     }
 
@@ -39,20 +34,20 @@ public class Benchmark {
             resultFolder.mkdirs();
         }
 
-        try (PrintWriter writer = new PrintWriter(new FileWriter("results/results.csv"))) {
-            writer.println("workload,variant,structure,n,time_ms,steps,moves,comparisons");
+        PrintWriter writer = new PrintWriter(new FileWriter("results/results.csv"));
+        writer.println("workload,variant,structure,n,time_ms,steps,moves,comparisons");
 
-            for (int n : SIZES) {
-                int[] data = createData(n);
+        for (int n : SIZES) {
+            int[] data = createData(n);
 
-                System.out.println("Running n = " + n);
-                runW1(writer, data);
-                runW2(writer, data);
-                runW3(writer, data);
-                runW4(writer, data);
-            }
+            System.out.println("Running n = " + n);
+            runW1(writer, data);
+            runW2(writer, data);
+            runW3(writer, data);
+            runW4(writer, data);
         }
 
+        writer.close();
         System.out.println("Done. Results are in results/results.csv");
     }
 
@@ -68,45 +63,54 @@ public class Benchmark {
     }
 
     private static void runW1(PrintWriter writer, int[] data) {
-        int n = data.length;
         int[] indexes = new int[10_000];
         Random random = new Random(42);
 
         for (int i = 0; i < indexes.length; i++) {
-            indexes[i] = random.nextInt(n);
+            indexes[i] = random.nextInt(data.length);
         }
 
-        RunResult arrayResult = measure(() -> runRandomAccess(new DynamicArray(), data, indexes));
-        writeRow(writer, "W1", "-", "DynamicArray", n, arrayResult);
+        RunResult arrayResult = measureRandomAccess("DynamicArray", data, indexes);
+        writeRow(writer, "W1", "-", "DynamicArray", data.length, arrayResult);
 
-        RunResult listResult = measure(() -> runRandomAccess(new MyLinkedList(), data, indexes));
-        writeRow(writer, "W1", "-", "MyLinkedList", n, listResult);
+        RunResult listResult = measureRandomAccess("MyLinkedList", data, indexes);
+        writeRow(writer, "W1", "-", "MyLinkedList", data.length, listResult);
+    }
+
+    private static RunResult measureRandomAccess(String name, int[] data, int[] indexes) {
+        runRandomAccess(createList(name), data, indexes);
+
+        RunResult[] results = new RunResult[RUNS];
+        for (int i = 0; i < RUNS; i++) {
+            results[i] = runRandomAccess(createList(name), data, indexes);
+        }
+
+        return getMedian(results);
     }
 
     private static RunResult runRandomAccess(IntList structure, int[] data, int[] indexes) {
         fillList(structure, data);
         structure.resetMetrics();
 
+        long sum = 0;
         long start = System.nanoTime();
-        long check = 0;
 
         for (int index : indexes) {
-            check += structure.get(index);
+            sum += structure.get(index);
         }
 
         long end = System.nanoTime();
-        use(check);
+        checkValue = sum;
 
         return new RunResult(toMs(start, end), structure.getMetrics());
     }
 
     private static void runW2(PrintWriter writer, int[] data) {
-        int n = data.length;
         int[] queries = new int[1_000];
         Random random = new Random(42);
 
         for (int i = 0; i < 500; i++) {
-            queries[i] = data[random.nextInt(n)];
+            queries[i] = data[random.nextInt(data.length)];
         }
 
         for (int i = 500; i < 1_000; i++) {
@@ -115,19 +119,30 @@ public class Benchmark {
 
         shuffle(queries, new Random(42));
 
-        RunResult arrayResult = measure(() -> runSearch(new DynamicArray(), data, queries));
-        writeRow(writer, "W2", "-", "DynamicArray", n, arrayResult);
+        RunResult arrayResult = measureSearch("DynamicArray", data, queries);
+        writeRow(writer, "W2", "-", "DynamicArray", data.length, arrayResult);
 
-        RunResult listResult = measure(() -> runSearch(new MyLinkedList(), data, queries));
-        writeRow(writer, "W2", "-", "MyLinkedList", n, listResult);
+        RunResult listResult = measureSearch("MyLinkedList", data, queries);
+        writeRow(writer, "W2", "-", "MyLinkedList", data.length, listResult);
+    }
+
+    private static RunResult measureSearch(String name, int[] data, int[] queries) {
+        runSearch(createList(name), data, queries);
+
+        RunResult[] results = new RunResult[RUNS];
+        for (int i = 0; i < RUNS; i++) {
+            results[i] = runSearch(createList(name), data, queries);
+        }
+
+        return getMedian(results);
     }
 
     private static RunResult runSearch(IntList structure, int[] data, int[] queries) {
         fillList(structure, data);
         structure.resetMetrics();
 
-        long start = System.nanoTime();
         int found = 0;
+        long start = System.nanoTime();
 
         for (int query : queries) {
             if (structure.contains(query)) {
@@ -136,13 +151,12 @@ public class Benchmark {
         }
 
         long end = System.nanoTime();
-        use(found);
+        checkValue = found;
 
         return new RunResult(toMs(start, end), structure.getMetrics());
     }
 
     private static void runW3(PrintWriter writer, int[] data) {
-        int n = data.length;
         int[] values = new int[1_000];
         Random random = new Random(42);
 
@@ -150,19 +164,30 @@ public class Benchmark {
             values[i] = random.nextInt(1_000_000);
         }
 
-        RunResult arrayHead = measure(() -> runInsertRemove(new DynamicArray(), data, values, 0));
-        writeRow(writer, "W3", "head", "DynamicArray", n, arrayHead);
+        RunResult arrayHead = measureInsertRemove("DynamicArray", data, values, 0);
+        writeRow(writer, "W3", "head", "DynamicArray", data.length, arrayHead);
 
-        RunResult listHead = measure(() -> runInsertRemove(new MyLinkedList(), data, values, 0));
-        writeRow(writer, "W3", "head", "MyLinkedList", n, listHead);
+        RunResult listHead = measureInsertRemove("MyLinkedList", data, values, 0);
+        writeRow(writer, "W3", "head", "MyLinkedList", data.length, listHead);
 
-        int middle = n / 2;
+        int middle = data.length / 2;
 
-        RunResult arrayMiddle = measure(() -> runInsertRemove(new DynamicArray(), data, values, middle));
-        writeRow(writer, "W3", "middle", "DynamicArray", n, arrayMiddle);
+        RunResult arrayMiddle = measureInsertRemove("DynamicArray", data, values, middle);
+        writeRow(writer, "W3", "middle", "DynamicArray", data.length, arrayMiddle);
 
-        RunResult listMiddle = measure(() -> runInsertRemove(new MyLinkedList(), data, values, middle));
-        writeRow(writer, "W3", "middle", "MyLinkedList", n, listMiddle);
+        RunResult listMiddle = measureInsertRemove("MyLinkedList", data, values, middle);
+        writeRow(writer, "W3", "middle", "MyLinkedList", data.length, listMiddle);
+    }
+
+    private static RunResult measureInsertRemove(String name, int[] data, int[] values, int index) {
+        runInsertRemove(createList(name), data, values, index);
+
+        RunResult[] results = new RunResult[RUNS];
+        for (int i = 0; i < RUNS; i++) {
+            results[i] = runInsertRemove(createList(name), data, values, index);
+        }
+
+        return getMedian(results);
     }
 
     private static RunResult runInsertRemove(IntList structure, int[] data, int[] values, int index) {
@@ -185,9 +210,15 @@ public class Benchmark {
     }
 
     private static void runW4(PrintWriter writer, int[] data) {
-        int n = data.length;
-        RunResult result = measure(() -> runHeap(data));
-        writeRow(writer, "W4", "-", "MinHeap", n, result);
+        runHeap(data);
+
+        RunResult[] results = new RunResult[RUNS];
+        for (int i = 0; i < RUNS; i++) {
+            results[i] = runHeap(data);
+        }
+
+        RunResult median = getMedian(results);
+        writeRow(writer, "W4", "-", "MinHeap", data.length, median);
     }
 
     private static RunResult runHeap(int[] data) {
@@ -217,18 +248,26 @@ public class Benchmark {
         return new RunResult(toMs(start, end), heap.getMetrics());
     }
 
-    private static RunResult measure(Action action) {
-        action.run();
-
-        RunResult[] results = new RunResult[RUNS];
-
-        for (int i = 0; i < RUNS; i++) {
-            results[i] = action.run();
+    private static IntList createList(String name) {
+        if (name.equals("DynamicArray")) {
+            return new DynamicArray();
         }
 
-        RunResult[] sorted = Arrays.copyOf(results, results.length);
-        Arrays.sort(sorted, Comparator.comparingDouble(result -> result.timeMs));
-        return sorted[RUNS / 2];
+        return new MyLinkedList();
+    }
+
+    private static RunResult getMedian(RunResult[] results) {
+        for (int i = 0; i < results.length - 1; i++) {
+            for (int j = i + 1; j < results.length; j++) {
+                if (results[j].timeMs < results[i].timeMs) {
+                    RunResult temp = results[i];
+                    results[i] = results[j];
+                    results[j] = temp;
+                }
+            }
+        }
+
+        return results[results.length / 2];
     }
 
     private static void fillList(IntList structure, int[] data) {
@@ -262,11 +301,5 @@ public class Benchmark {
 
     private static double toMs(long start, long end) {
         return (end - start) / 1_000_000.0;
-    }
-
-    private static volatile long blackHole;
-
-    private static void use(long value) {
-        blackHole = value;
     }
 }

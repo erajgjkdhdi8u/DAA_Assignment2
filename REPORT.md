@@ -87,7 +87,7 @@ So `contains(x)` correctly returns `true` only when the value is present and ret
 
 For each structure I first inserted `n` values and then performed 10 000 calls to `get(index)` with random indexes.
 
-At `n = 100 000`, `DynamicArray` used exactly 10 000 measured array reads and had a median time of about **0.0142 ms** in this run. `MyLinkedList` needed about **502 489 208** pointer steps and had a median time of about **585.6920 ms**. The exact timing can change between computers, but the operation counts explain the large difference.
+At `n = 100 000`, `DynamicArray` used exactly 10 000 measured array reads and had a median time of about **0.0292 ms** in this run. `MyLinkedList` needed about **502 489 208** pointer steps and had a median time of about **597.9355 ms**. The exact timing can change between computers, but the operation counts explain the large difference.
 
 ![W1 time](results/plots/w1_time.png)
 
@@ -97,7 +97,7 @@ At `n = 100 000`, `DynamicArray` used exactly 10 000 measured array reads and ha
 
 For search I made 1 000 `contains(x)` queries. Half of them used values taken from the structure and half used negative values that were not in the generated input.
 
-At `n = 100 000`, both structures performed about **73.7 million comparisons**. `DynamicArray` took about **31.0906 ms**, while `MyLinkedList` took about **101.8850 ms**. The asymptotic behavior is similar, but the array was faster in this experiment.
+At `n = 100 000`, both structures performed about **73.7 million comparisons**. `DynamicArray` took about **32.2366 ms**, while `MyLinkedList` took about **113.1347 ms**. The asymptotic behavior is similar, but the array was faster in this experiment.
 
 ![W2 time](results/plots/w2_time.png)
 
@@ -107,9 +107,9 @@ At `n = 100 000`, both structures performed about **73.7 million comparisons**. 
 
 This workload has two variants. The `head` variant performs 1 000 insertions and 1 000 removals at index 0. The `middle` variant uses index `n / 2`.
 
-At `n = 100 000` in the head variant, `DynamicArray` performed about **200 999 000 moves** and took about **54.4464 ms**. `MyLinkedList` only needed direct head updates and took about **0.0532 ms** in the same benchmark run.
+At `n = 100 000` in the head variant, `DynamicArray` performed about **200 999 000 moves** and took about **60.9442 ms**. `MyLinkedList` only needed direct head updates and took about **0.0652 ms** in the same benchmark run.
 
-In the middle variant at `n = 100 000`, `DynamicArray` took about **26.5708 ms**, while `MyLinkedList` took about **116.5421 ms**. The list avoids shifting stored values, but it still has to traverse to the middle for every operation, so the traversal becomes expensive.
+In the middle variant at `n = 100 000`, `DynamicArray` took about **27.3654 ms**, while `MyLinkedList` took about **116.0951 ms**. The list avoids shifting stored values, but it still has to traverse to the middle for every operation, so the traversal becomes expensive.
 
 ![W3 head time](results/plots/w3_head_time.png)
 
@@ -123,7 +123,7 @@ In the middle variant at `n = 100 000`, `DynamicArray` took about **26.5708 ms**
 
 For the heap workload I inserted all `n` values and then repeatedly called `extractMin()` until the heap was empty. During the benchmark the returned values were checked to make sure they were in non-decreasing order.
 
-At `n = 100 000`, the measured median time was about **9.9203 ms**. The counters recorded about **9.28 million array reads**, **3.32 million moves**, and **3.06 million comparisons**. The growth is consistent with insert and extraction operations that can travel through the height of the binary heap.
+At `n = 100 000`, the measured median time was about **10.5343 ms**. The counters recorded about **9.28 million array reads**, **3.32 million moves**, and **3.06 million comparisons**. The growth is consistent with insert and extraction operations that can travel through the height of the binary heap.
 
 ![W4 time](results/plots/w4_time.png)
 
