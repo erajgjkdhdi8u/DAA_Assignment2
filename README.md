@@ -1,7 +1,7 @@
 # DAA Assignment 2 - Data Structures
 
-Student: Islam Tauyekel  
-Group: **change this line to your group before submission**
+Student: Erasyl Kuralbaev  
+Group: **SE2516**
 
 ## Project idea
 
